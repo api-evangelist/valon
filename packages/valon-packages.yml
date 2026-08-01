@@ -1,0 +1,59 @@
+generated: '2026-07-21'
+method: searched
+source: https://registry.npmjs.org/-/v1/search?text=valon + https://github.com/valon-technologies/gestalt
+notes: >-
+  Valon (Valon Technologies) publishes first-party client packages for Gestalt,
+  its open source self-hostable platform for managing agentic tools and services.
+  The npm packages were confirmed directly against the npm registry; the Homebrew
+  formulas are documented in the Gestalt README (brew tap valon-technologies/gestalt).
+  The Python and Rust SDKs are published as gestalt-sdk on PyPI and crates.io
+  (both confirmed live); the Go SDK ships in-repo under sdk/go.
+packages:
+  - language: typescript
+    registry: npm
+    name: "@valon-technologies/gestalt"
+    description: TypeScript SDK for Gestalt executable providers
+    url: https://www.npmjs.com/package/@valon-technologies/gestalt
+    install: npm install @valon-technologies/gestalt
+    official: true
+  - language: typescript
+    registry: npm
+    name: "@valon-technologies/gestalt-web"
+    description: Browser REST client and Vite integration for Gestalt web apps
+    url: https://www.npmjs.com/package/@valon-technologies/gestalt-web
+    install: npm install @valon-technologies/gestalt-web
+    official: true
+  - language: go
+    registry: homebrew
+    name: valon-technologies/gestalt/gestaltd
+    description: Gestalt server daemon (Go) via the official Homebrew tap
+    url: https://github.com/valon-technologies/homebrew-gestalt
+    install: brew install valon-technologies/gestalt/gestaltd
+    official: true
+  - language: rust
+    registry: homebrew
+    name: valon-technologies/gestalt/gestalt
+    description: Gestalt CLI client (Rust) via the official Homebrew tap
+    url: https://github.com/valon-technologies/homebrew-gestalt
+    install: brew install valon-technologies/gestalt/gestalt
+    official: true
+  - language: go
+    registry: github
+    name: github.com/valon-technologies/gestalt/sdk/go
+    description: Go SDK for Gestalt providers (in-repo)
+    url: https://github.com/valon-technologies/gestalt/tree/main/sdk/go
+    official: true
+  - language: python
+    registry: pypi
+    name: gestalt-sdk
+    description: Python SDK for Gestalt executable providers
+    url: https://pypi.org/project/gestalt-sdk/
+    install: pip install gestalt-sdk
+    official: true
+  - language: rust
+    registry: crates.io
+    name: gestalt-sdk
+    description: Rust SDK scaffolding and generated protocol bindings for Gestalt executable providers
+    url: https://crates.io/crates/gestalt-sdk
+    install: cargo add gestalt-sdk
+    official: true

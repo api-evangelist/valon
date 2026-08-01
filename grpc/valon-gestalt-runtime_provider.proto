@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "v1/agent.proto";
+import "v1/annotations.proto";
+
+enum RuntimeEgressMode {
+  RUNTIME_EGRESS_MODE_UNSPECIFIED = 0;
+  RUNTIME_EGRESS_MODE_NONE = 1;
+  RUNTIME_EGRESS_MODE_CIDR = 2;
+  RUNTIME_EGRESS_MODE_HOSTNAME = 3;
+}
+
+message RuntimeSupport {
+  reserved 2, 4, 5, 6;
+  reserved "host_service_access";
+  bool can_host_apps = 1;
+  RuntimeEgressMode egress_mode = 3;
+  bool supports_prepare_workspace = 7;
+}
+
+message RuntimeSession {
+  string id = 1;
+  string state = 2;
+  map<string, string> metadata = 3;
+  RuntimeSessionLifecycle lifecycle = 4;
+  string state_reason = 5;
+  string state_message = 6;
+}
+
+message RuntimeSessionLifecycle {
+  google.protobuf.Timestamp started_at = 1;
+  google.protobuf.Timestamp recommended_drain_at = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message RuntimeImagePullAuth {
+  string docker_config_json = 1;
+}
+
+message StartRuntimeSessionRequest {
+  reserved 5;
+  reserved "image_pull_credentials";
+  string app_name = 1;
+  string template = 2;
+  string image = 3;
+  map<string, string> metadata = 4;
+  RuntimeImagePullAuth image_pull_auth = 6;
+}
+
+message GetRuntimeSessionRequest {
+  string session_id = 1;
+}
+
+message ListRuntimeSessionsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListRuntimeSessionsResponse {
+  repeated RuntimeSession sessions = 1;
+  string next_page_token = 2;
+}
+
+message StopRuntimeSessionRequest {
+  string session_id = 1;
+}
+
+message PrepareRuntimeWorkspaceRequest {
+  string session_id = 1;
+  // Opaque, path-safe workspace key minted by the host. Despite the name it
+  // is not required to match any agent session id; it only identifies the
+  // prepared workspace directory for later removal.
+  string agent_session_id = 2;
+  AgentWorkspace workspace = 3;
+}
+
+message PrepareRuntimeWorkspaceResponse {
+  option (unwrap) = "workspace";
+
+  PreparedAgentWorkspace workspace = 1;
+}
+
+message RemoveRuntimeWorkspaceRequest {
+  string session_id = 1;
+  // The workspace key the workspace was prepared under; see
+  // PrepareRuntimeWorkspaceRequest.agent_session_id.
+  string agent_session_id = 2;
+}
+
+// StartHostedAppRequest describes the app process to launch inside a
+// runtime session. The runtime backend owns allocation and injection of the
+// app's listener endpoint and returns a host-reachable dial target in the
+// HostedApp response.
+message StartHostedAppRequest {
+  reserved 6, 10;
+  string session_id = 1;
+  string app_name = 2;
+  string command = 3;
+  repeated string args = 4;
+  map<string, string> env = 5;
+  repeated string allowed_hosts = 7;
+  string default_action = 8;
+  string host_binary = 9;
+  string workdir = 11;
+}
+
+message HostedApp {
+  string id = 1;
+  string session_id = 2;
+  string app_name = 3;
+  string dial_target = 4;
+}
+
+service Runtime {
+  rpc GetSupport(google.protobuf.Empty) returns (RuntimeSupport);
+  rpc StartSession(StartRuntimeSessionRequest) returns (RuntimeSession) {
+    option (signature) = "app_name";
+    option (signature) = "template";
+    option (signature) = "image";
+    option (signature) = "image_pull_auth";
+  }
+  rpc GetSession(GetRuntimeSessionRequest) returns (RuntimeSession) {
+    option (signature) = "session_id";
+  }
+  rpc ListSessions(ListRuntimeSessionsRequest) returns (ListRuntimeSessionsResponse);
+  rpc StopSession(StopRuntimeSessionRequest) returns (google.protobuf.Empty) {
+    option (signature) = "session_id";
+  }
+  rpc PrepareWorkspace(PrepareRuntimeWorkspaceRequest) returns (PrepareRuntimeWorkspaceResponse) {
+    option (signature) = "session_id";
+    option (signature) = "agent_session_id";
+    option (signature) = "workspace";
+  }
+  rpc RemoveWorkspace(RemoveRuntimeWorkspaceRequest) returns (google.protobuf.Empty) {
+    option (signature) = "session_id";
+    option (signature) = "agent_session_id";
+  }
+  rpc StartApp(StartHostedAppRequest) returns (HostedApp) {
+    option (signature) = "session_id";
+    option (signature) = "app_name";
+    option (signature) = "command";
+    option (signature) = "args";
+    option (signature) = "allowed_hosts";
+    option (signature) = "default_action";
+    option (signature) = "host_binary";
+    option (signature) = "workdir";
+  }
+}

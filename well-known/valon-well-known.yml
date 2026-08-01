@@ -1,0 +1,54 @@
+generated: '2026-07-21'
+method: searched
+notes: >-
+  Probed the /.well-known/ discovery surface on every Valon host found during
+  enrichment. No documents were published on any host (all probes returned 404
+  or the host did not resolve). Recorded statuses are honest absence data.
+hosts:
+  - host: https://valon.com
+    documents:
+      - path: /.well-known/security.txt
+        status: 404
+      - path: /security.txt
+        status: 404
+      - path: /.well-known/openid-configuration
+        status: 404
+      - path: /.well-known/oauth-authorization-server
+        status: 404
+      - path: /.well-known/api-catalog
+        status: 404
+      - path: /.well-known/ai-plugin.json
+        status: 404
+      - path: /llms.txt
+        status: 404
+  - host: https://api.valon.com
+    notes: Live host; root returns 200 "Hello world!" placeholder, no public API documentation.
+    documents:
+      - path: /.well-known/security.txt
+        status: 404
+      - path: /.well-known/openid-configuration
+        status: 404
+      - path: /.well-known/oauth-authorization-server
+        status: 404
+      - path: /.well-known/api-catalog
+        status: 404
+  - host: https://www.valon.ai
+    documents:
+      - path: /.well-known/security.txt
+        status: 404
+      - path: /.well-known/openid-configuration
+        status: 404
+      - path: /llms.txt
+        status: 404
+  - host: https://gestaltd.ai
+    documents:
+      - path: /.well-known/security.txt
+        status: 404
+      - path: /llms.txt
+        status: 404
+      - path: /llms-full.txt
+        status: 404
+      - path: /openapi.yaml
+        status: 404
+      - path: /openapi.json
+        status: 404

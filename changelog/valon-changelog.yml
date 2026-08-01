@@ -1,0 +1,43 @@
+generated: '2026-07-21'
+method: searched
+source: https://github.com/valon-technologies/gestalt/releases
+notes: >-
+  Valon's public change surface is the GitHub Releases feed of the Gestalt
+  monorepo, tagged per component (gestaltd server, gestalt CLI, language SDKs).
+  All components are pre-release/alpha; releases ship near-daily. Recent window
+  only — the live releases feed is the source of truth. The consumer mortgage
+  business publishes no developer changelog.
+scheme: per-component semver tags with alpha pre-release suffixes (component/vX.Y.Z-alpha.N)
+current:
+  gestaltd: 0.0.2-alpha.45
+  gestalt-cli: 0.0.2-alpha.10
+  rust-sdk: 0.0.1-alpha.24
+entries:
+  - version: gestaltd/v0.0.2-alpha.45
+    date: '2026-07-21'
+    breaking: false
+    highlights:
+      - Self-hosted integration gateway build with embedded client UI, admin UI, HTTP API, and optional MCP endpoint
+  - version: sdk/rust/v0.0.1-alpha.24
+    date: '2026-07-20'
+    breaking: false
+    highlights:
+      - Rust SDK for building Gestalt executable providers (integration, auth, IndexedDB surfaces); published to crates.io as gestalt-sdk
+  - version: gestaltd/v0.0.2-alpha.44
+    date: '2026-07-20'
+    breaking: false
+    highlights:
+      - gestaltd pre-release build
+  - version: gestalt/v0.0.2-alpha.10
+    date: '2026-07-20'
+    breaking: false
+    highlights:
+      - gestalt CLI pre-release build
+  - version: gestaltd/v0.0.2-alpha.43
+    date: '2026-07-16'
+    breaking: false
+    highlights:
+      - gestaltd pre-release build
+stability_note: >-
+  The project README warns that APIs and configuration may change between
+  releases while Gestalt is alpha.

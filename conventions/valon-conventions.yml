@@ -1,0 +1,47 @@
+generated: '2026-07-21'
+method: searched
+source: https://gestaltd.ai/reference/http-api
+notes: >-
+  Cross-cutting request/response semantics of the Gestalt HTTP API, captured
+  from the published API reference (no OpenAPI is available). Gestalt is
+  self-hosted, so the base URL is deployment-specific (default
+  http://localhost:8080). No idempotency-key contract is documented.
+authentication:
+  style: Authorization Bearer token or session_token cookie
+  reference: authentication/valon-authentication.yml
+versioning:
+  style: uri-path
+  versions:
+    - path: /api/v1
+      note: hand-written, CLI-oriented surface
+    - path: /api/v2
+      note: generated from gRPC annotations (see grpc/ protobuf definitions)
+request_conventions:
+  mutations: /api/v2 routes use JSON bodies (body "*" mapping); mutations carry provider or providerName in the JSON body
+  reads_deletes: reads and deletes pass provider or providerName as query parameters
+  custom_methods: AIP-style custom methods use the "collection:verb" form (e.g. /api/v2/workflow/definitions:apply, /api/v2/authorization/access:check)
+error_envelope:
+  style: gRPC-canonical errors at the gateway; app invocations return HTTP 200 with a protobuf-JSON OperationResult envelope carrying the operation outcome
+  reference: https://gestaltd.ai/reference/http-api
+idempotency:
+  supported: false
+  note: No idempotency-key header or replay contract is documented.
+pagination:
+  documented: false
+tracing_observability:
+  style: OpenTelemetry-compatible observability and audit logging
+  docs: https://gestaltd.ai/observability
+operational_surfaces:
+  - path: /health
+    note: unauthenticated health check
+  - path: /ready
+    note: unauthenticated readiness check
+  - path: /metrics
+    note: management listener
+  - path: /mcp
+    note: MCP endpoint when configured (see mcp/valon-mcp.yml)
+cross_links:
+  authentication: authentication/valon-authentication.yml
+  lifecycle: lifecycle/valon-lifecycle.yml
+  mcp: mcp/valon-mcp.yml
+  packages: packages/valon-packages.yml

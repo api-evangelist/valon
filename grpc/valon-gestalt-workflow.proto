@@ -1,0 +1,643 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/api/annotations.proto";
+import "google/api/visibility.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "v1/agent.proto";
+import "v1/annotations.proto";
+import "v1/app.proto";
+
+message BoundWorkflowTarget {
+  reserved 1 to 7;
+  repeated WorkflowStep steps = 8;
+}
+
+message WorkflowStep {
+  reserved 5, 7, 8, 9;
+  string id = 1;
+  map<string, WorkflowValue> inputs = 2;
+  WorkflowStepWhen when = 3;
+  int32 timeout_seconds = 4;
+  google.protobuf.Struct metadata = 6;
+
+  oneof action {
+    WorkflowStepAppCall app = 10;
+    WorkflowStepAgentTurn agent = 11;
+  }
+}
+
+message WorkflowStepAppCall {
+  string name = 1;
+  string operation = 2;
+  WorkflowValue input = 3;
+  string connection = 4;
+  string instance = 5;
+  string credential_mode = 6;
+}
+
+message WorkflowStepAgentTurn {
+  string provider = 1;
+  string model = 2;
+  string session_key = 3;
+  WorkflowText prompt = 4;
+  repeated WorkflowAgentMessage messages = 5;
+  repeated AgentToolRef tools = 6;
+  AgentOutput output = 7;
+  google.protobuf.Struct model_options = 8;
+}
+
+message WorkflowAgentMessage {
+  string role = 1;
+  WorkflowText text = 2;
+  google.protobuf.Struct metadata = 3;
+}
+
+message WorkflowText {
+  string template = 1;
+}
+
+message WorkflowStepWhen {
+  WorkflowValue value = 1;
+  google.protobuf.Value equals = 2;
+}
+
+message WorkflowValue {
+  reserved 7, 8, 10, 11;
+  oneof kind {
+    google.protobuf.Value literal = 1;
+    WorkflowObject object = 2;
+    WorkflowArray array = 3;
+    WorkflowText template = 4;
+    WorkflowPathSource input = 5;
+    WorkflowPathSource signal = 6;
+    WorkflowStepOutputSource step_output = 9;
+    WorkflowStepInputSource step_input = 12;
+  }
+}
+
+message WorkflowObject {
+  map<string, WorkflowValue> fields = 1;
+}
+
+message WorkflowArray {
+  repeated WorkflowValue values = 1;
+}
+
+message WorkflowPathSource {
+  string path = 1;
+}
+
+message WorkflowStepOutputSource {
+  string step_id = 1;
+  string path = 2;
+}
+
+message WorkflowStepInputSource {
+  string step_id = 1;
+  string path = 2;
+}
+
+enum WorkflowRunStatus {
+  WORKFLOW_RUN_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_RUN_STATUS_PENDING = 1;
+  WORKFLOW_RUN_STATUS_RUNNING = 2;
+  WORKFLOW_RUN_STATUS_SUCCEEDED = 3;
+  WORKFLOW_RUN_STATUS_FAILED = 4;
+  WORKFLOW_RUN_STATUS_CANCELED = 5;
+}
+
+enum WorkflowStepStatus {
+  WORKFLOW_STEP_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_STEP_STATUS_PENDING = 1;
+  WORKFLOW_STEP_STATUS_RUNNING = 2;
+  WORKFLOW_STEP_STATUS_SKIPPED = 3;
+  WORKFLOW_STEP_STATUS_SUCCEEDED = 4;
+  WORKFLOW_STEP_STATUS_FAILED = 5;
+  WORKFLOW_STEP_STATUS_UNKNOWN = 6;
+}
+
+message WorkflowEvent {
+  string id = 1;
+  string source = 2;
+  string spec_version = 3;
+  string type = 4;
+  string subject = 5;
+  google.protobuf.Timestamp time = 6;
+  string datacontenttype = 7;
+  google.protobuf.Struct data = 8;
+  map<string, google.protobuf.Value> extensions = 9;
+}
+
+message WorkflowEventMatch {
+  string type = 1;
+  string source = 2;
+  string subject = 3;
+}
+
+message WorkflowScheduleActivation {
+  string cron = 1;
+  string timezone = 2;
+}
+
+message WorkflowEventActivation {
+  WorkflowEventMatch match = 1;
+}
+
+message WorkflowActivation {
+  string id = 1;
+  WorkflowValue input = 2;
+  bool paused = 3;
+
+  oneof trigger {
+    WorkflowScheduleActivation schedule = 4;
+    WorkflowEventActivation event = 5;
+  }
+}
+
+message WorkflowDefinitionSpec {
+  string id = 1;
+  BoundWorkflowTarget target = 2;
+  repeated WorkflowActivation activations = 3;
+  bool paused = 4;
+  string run_as = 5;
+}
+
+message WorkflowDefinition {
+  string id = 1;
+  int64 generation = 2;
+  BoundWorkflowTarget target = 3;
+  repeated WorkflowActivation activations = 4;
+  bool paused = 5;
+  reserved 6;
+  reserved "created_by_subject_id";
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  string provider = 9;
+  string run_as = 10;
+}
+
+message WorkflowManualTrigger {}
+
+message WorkflowScheduleTrigger {
+  string activation_id = 1;
+  google.protobuf.Timestamp scheduled_for = 2;
+}
+
+message WorkflowEventTriggerInvocation {
+  string activation_id = 1;
+  WorkflowEvent event = 2;
+}
+
+message WorkflowRunTrigger {
+  oneof kind {
+    WorkflowManualTrigger manual = 1;
+    WorkflowScheduleTrigger schedule = 2;
+    WorkflowEventTriggerInvocation event = 3;
+  }
+}
+
+message WorkflowStepAttempt {
+  string id = 1;
+  WorkflowStepStatus status = 2;
+  string idempotency_key = 3;
+  google.protobuf.Value input = 4;
+  google.protobuf.Value output = 5;
+  string status_message = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+}
+
+message WorkflowStepExecution {
+  string step_id = 1;
+  WorkflowStepStatus status = 2;
+  repeated WorkflowStepAttempt attempts = 3;
+  google.protobuf.Value input = 4;
+  google.protobuf.Value output = 5;
+  string status_message = 6;
+  string skip_reason = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+}
+
+message WorkflowRun {
+  string id = 1;
+  WorkflowRunStatus status = 2;
+  BoundWorkflowTarget target = 3;
+  WorkflowRunTrigger trigger = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  string status_message = 8;
+  google.protobuf.Value output = 9;
+  reserved 10;
+  reserved "created_by_subject_id";
+  string workflow_key = 12;
+  string provider = 13;
+  string definition_id = 14;
+  string run_as = 15;
+  google.protobuf.Struct input = 16;
+  int64 definition_generation = 17;
+  string current_step_id = 18;
+  repeated WorkflowStepExecution steps = 19;
+}
+
+message WorkflowSignal {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Struct payload = 3;
+  google.protobuf.Struct metadata = 4;
+  reserved 5;
+  reserved "created_by_subject_id";
+  google.protobuf.Timestamp created_at = 6;
+  string idempotency_key = 7;
+  int64 sequence = 8;
+}
+
+message ApplyWorkflowProviderDefinitionRequest {
+  reserved 3, 5;
+  reserved "requested_by_subject_id";
+
+  string provider = 1;
+  WorkflowDefinitionSpec spec = 2;
+  string idempotency_key = 4;
+  RequestContext context = 6;
+}
+
+message GetWorkflowProviderDefinitionRequest {
+  reserved 2;
+
+  string definition_id = 1;
+  RequestContext context = 3;
+  string provider = 4;
+}
+
+message ListWorkflowProviderDefinitionsRequest {
+  reserved 1;
+
+  RequestContext context = 2;
+  string provider = 3;
+}
+
+message ListWorkflowProviderDefinitionsResponse {
+  option (unwrap) = "definitions";
+
+  repeated WorkflowDefinition definitions = 1;
+}
+
+message SetWorkflowProviderDefinitionPausedRequest {
+  reserved 3, 4;
+  reserved "requested_by_subject_id";
+
+  string definition_id = 1;
+  bool paused = 2;
+  RequestContext context = 5;
+  string provider = 6;
+}
+
+message SetWorkflowProviderActivationPausedRequest {
+  reserved 4, 5;
+  reserved "requested_by_subject_id";
+
+  string definition_id = 1;
+  string activation_id = 2;
+  bool paused = 3;
+  RequestContext context = 6;
+  string provider = 7;
+}
+
+message DeleteWorkflowProviderDefinitionRequest {
+  reserved 2;
+
+  string definition_id = 1;
+  RequestContext context = 3;
+  string provider = 4;
+}
+
+message StartWorkflowProviderRunRequest {
+  reserved 1, 4, 8, 10;
+  reserved "created_by_subject_id", "run_as";
+
+  string idempotency_key = 2;
+  string workflow_key = 6;
+  string provider = 7;
+  string definition_id = 9;
+  google.protobuf.Struct input = 11;
+  int64 expected_definition_generation = 12;
+  RequestContext context = 13;
+}
+
+message GetWorkflowProviderRunRequest {
+  reserved 3;
+
+  string run_id = 2;
+  RequestContext context = 4;
+  string provider = 5;
+}
+
+message ListWorkflowProviderRunsRequest {
+  reserved 4;
+
+  int32 page_size = 1;
+  string page_token = 2;
+  WorkflowRunStatus status = 3;
+  string target_app = 5;
+  RequestContext context = 6;
+  string provider = 7;
+}
+
+message ListWorkflowProviderRunsResponse {
+  repeated WorkflowRun runs = 1;
+  string next_page_token = 2;
+}
+
+message CancelWorkflowProviderRunRequest {
+  reserved 4;
+
+  string run_id = 2;
+  string reason = 3;
+  RequestContext context = 5;
+  string provider = 6;
+}
+
+message SignalWorkflowProviderRunRequest {
+  reserved 3;
+
+  string run_id = 1;
+  WorkflowSignal signal = 2;
+  RequestContext context = 4;
+  string provider = 5;
+}
+
+message SignalOrStartWorkflowProviderRunRequest {
+  reserved 2, 4, 8, 10;
+  reserved "created_by_subject_id", "run_as";
+
+  string workflow_key = 1;
+  string idempotency_key = 3;
+  WorkflowSignal signal = 6;
+  string provider = 7;
+  string definition_id = 9;
+  google.protobuf.Struct input = 11;
+  int64 expected_definition_generation = 12;
+  RequestContext context = 13;
+}
+
+message SignalWorkflowRunResponse {
+  WorkflowRun run = 1;
+  WorkflowSignal signal = 2;
+  bool started_run = 3;
+  string workflow_key = 4;
+}
+
+message DeliverWorkflowProviderEventRequest {
+  reserved 1, 3, 4;
+  reserved "app_name", "delivered_by_subject_id";
+
+  string provider = 5;
+  WorkflowEvent event = 2;
+  RequestContext context = 6;
+}
+
+message WorkflowRunEvent {
+  string id = 1;
+  string run_id = 2;
+  string step_id = 3;
+  string type = 4;
+  google.protobuf.Struct data = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message GetWorkflowProviderRunEventsRequest {
+  reserved 2;
+
+  string run_id = 1;
+  RequestContext context = 3;
+  string provider = 4;
+}
+
+message GetWorkflowProviderRunEventsResponse {
+  option (unwrap) = "events";
+
+  repeated WorkflowRunEvent events = 1;
+}
+
+message GetWorkflowProviderRunOutputRequest {
+  reserved 2;
+
+  string run_id = 1;
+  RequestContext context = 3;
+  string provider = 4;
+}
+
+message GetWorkflowProviderRunOutputResponse {
+  option (unwrap) = "output";
+
+  google.protobuf.Value output = 1;
+}
+
+service Workflow {
+  option (host_binding) = "workflow";
+
+  rpc ApplyDefinition(ApplyWorkflowProviderDefinitionRequest) returns (WorkflowDefinition) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/definitions:apply"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "idempotency_key";
+    option (signature) = "spec";
+  }
+  rpc GetDefinition(GetWorkflowProviderDefinitionRequest) returns (WorkflowDefinition) {
+    option (google.api.http) = {get: "/api/v2/workflow/definitions/{definition_id}"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+  }
+  rpc ListDefinitions(ListWorkflowProviderDefinitionsRequest) returns (ListWorkflowProviderDefinitionsResponse) {
+    option (google.api.http) = {get: "/api/v2/workflow/definitions"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+  }
+  rpc SetDefinitionPaused(SetWorkflowProviderDefinitionPausedRequest) returns (WorkflowDefinition) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/definitions/{definition_id}:setPaused"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+    option (signature) = "paused";
+  }
+  rpc SetActivationPaused(SetWorkflowProviderActivationPausedRequest) returns (WorkflowDefinition) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/definitions/{definition_id}/activations/{activation_id}:setPaused"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+    option (signature) = "activation_id";
+    option (signature) = "paused";
+  }
+  rpc DeleteDefinition(DeleteWorkflowProviderDefinitionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v2/workflow/definitions/{definition_id}"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+  }
+
+  rpc StartRun(StartWorkflowProviderRunRequest) returns (WorkflowRun) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/definitions/{definition_id}/runs"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "idempotency_key";
+    option (signature) = "workflow_key";
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+    option (signature) = "expected_definition_generation";
+    option (signature) = "input";
+  }
+  rpc ListRuns(ListWorkflowProviderRunsRequest) returns (ListWorkflowProviderRunsResponse) {
+    option (google.api.http) = {get: "/api/v2/workflow/runs"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "page_size";
+    option (signature) = "page_token";
+    option (signature) = "status";
+    option (signature) = "target_app";
+  }
+  rpc GetRun(GetWorkflowProviderRunRequest) returns (WorkflowRun) {
+    option (google.api.http) = {get: "/api/v2/workflow/runs/{run_id}"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "run_id";
+  }
+  rpc GetRunEvents(GetWorkflowProviderRunEventsRequest) returns (GetWorkflowProviderRunEventsResponse) {
+    option (google.api.http) = {get: "/api/v2/workflow/runs/{run_id}/events"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "run_id";
+  }
+  rpc GetRunOutput(GetWorkflowProviderRunOutputRequest) returns (GetWorkflowProviderRunOutputResponse) {
+    option (google.api.http) = {get: "/api/v2/workflow/runs/{run_id}/output"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "run_id";
+  }
+  rpc CancelRun(CancelWorkflowProviderRunRequest) returns (WorkflowRun) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/runs/{run_id}:cancel"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "run_id";
+    option (signature) = "reason";
+  }
+  rpc SignalRun(SignalWorkflowProviderRunRequest) returns (SignalWorkflowRunResponse) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/runs/{run_id}:signal"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "provider";
+    option (signature) = "run_id";
+    option (signature) = "signal";
+  }
+  rpc SignalOrStartRun(SignalOrStartWorkflowProviderRunRequest) returns (SignalWorkflowRunResponse) {
+    option (google.api.http) = {
+      post: "/api/v2/workflow/definitions/{definition_id}:signalOrStart"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "workflow_key";
+    option (signature) = "idempotency_key";
+    option (signature) = "provider";
+    option (signature) = "definition_id";
+    option (signature) = "expected_definition_generation";
+    option (signature) = "signal";
+    option (signature) = "input";
+  }
+
+  rpc DeliverEvent(DeliverWorkflowProviderEventRequest) returns (WorkflowEvent) {
+    option (signature) = "provider";
+    option (signature) = "event";
+  }
+}

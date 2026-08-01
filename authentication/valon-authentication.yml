@@ -1,0 +1,39 @@
+generated: '2026-07-21'
+method: searched
+docs: https://gestaltd.ai/reference/http-api
+source: https://gestaltd.ai/reference/http-api
+notes: >-
+  Valon publishes no OpenAPI document, so this profile is captured from the
+  Gestalt HTTP API reference (gestaltd.ai). Gestalt is Valon's open source,
+  self-hostable agentic tools platform; authentication applies to each
+  self-hosted deployment. Valon's consumer mortgage-servicing surfaces
+  (valon.com) expose account login only, with no public API authentication.
+summary:
+  types: [http-bearer, session-cookie]
+  oauth2_flows: []
+schemes:
+  - name: bearerToken
+    type: http
+    scheme: bearer
+    description: >-
+      Authenticated routes accept an Authorization Bearer token. Tokens are
+      issued and managed via the token endpoints (POST /api/v1/tokens,
+      DELETE /api/v1/tokens/{id}) and the gestalt CLI token management flows.
+    sources: [https://gestaltd.ai/reference/http-api]
+  - name: sessionToken
+    type: apiKey
+    in: cookie
+    parameter: session_token
+    description: Browser sessions authenticate with a session_token cookie set by the login flow.
+    sources: [https://gestaltd.ai/reference/http-api]
+unauthenticated_routes:
+  - /health
+  - /ready
+  - /admin
+  - login/logout endpoints
+  - POST /api/v2/identity/authorize
+  - POST /api/v2/identity/token
+identity_note: >-
+  Identity flows, credential storage, encryption at rest, token refresh, and
+  RBAC are provided through Gestalt's provider ecosystem
+  (https://gestaltd.ai/providers/identity, /providers/authorization).

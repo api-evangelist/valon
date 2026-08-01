@@ -1,0 +1,234 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "v1/annotations.proto";
+
+// S3ObjectRef identifies one object or object version.
+message S3ObjectRef {
+  reserved 1;
+  reserved "bucket";
+  string key = 2;
+  string version_id = 3;
+}
+
+// S3ObjectMeta describes one object returned by the provider.
+message S3ObjectMeta {
+  S3ObjectRef ref = 1;
+  string etag = 2;
+  int64 size = 3;
+  string content_type = 4;
+  google.protobuf.Timestamp last_modified = 5;
+  map<string, string> metadata = 6;
+  string storage_class = 7;
+}
+
+// ByteRange requests a half-open slice of an object's bytes.
+message ByteRange {
+  optional int64 start = 1;
+  optional int64 end = 2;
+}
+
+// HeadObjectRequest fetches metadata for one object.
+message HeadObjectRequest {
+  S3ObjectRef ref = 1;
+}
+
+// HeadObjectResponse returns object metadata.
+message HeadObjectResponse {
+  S3ObjectMeta meta = 1;
+}
+
+// ReadObjectRequest opens a streaming object read.
+message ReadObjectRequest {
+  S3ObjectRef ref = 1;
+  optional ByteRange range = 2;
+  string if_match = 3;
+  string if_none_match = 4;
+  google.protobuf.Timestamp if_modified_since = 5;
+  google.protobuf.Timestamp if_unmodified_since = 6;
+}
+
+// ReadObjectChunk is one frame in a streaming object read.
+message ReadObjectChunk {
+  oneof result {
+    S3ObjectMeta meta = 1;
+    bytes data = 2;
+  }
+}
+
+// WriteObjectOpen carries the metadata frame that must be sent first in a
+// write-object stream.
+message WriteObjectOpen {
+  S3ObjectRef ref = 1;
+  string content_type = 2;
+  string cache_control = 3;
+  string content_disposition = 4;
+  string content_encoding = 5;
+  string content_language = 6;
+  map<string, string> metadata = 7;
+  string if_match = 8;
+  string if_none_match = 9;
+}
+
+// WriteObjectRequest is one frame in a write-object stream.
+message WriteObjectRequest {
+  oneof msg {
+    WriteObjectOpen open = 1;
+    bytes data = 2;
+  }
+}
+
+// WriteObjectResponse returns metadata for the committed object.
+message WriteObjectResponse {
+  S3ObjectMeta meta = 1;
+}
+
+// DeleteObjectRequest removes one object.
+message DeleteObjectRequest {
+  S3ObjectRef ref = 1;
+}
+
+// ListObjectsRequest lists objects in the provider's configured bucket.
+message ListObjectsRequest {
+  reserved 1;
+  reserved "bucket";
+  string prefix = 2;
+  string delimiter = 3;
+  string continuation_token = 4;
+  string start_after = 5;
+  int32 max_keys = 6;
+}
+
+// ListObjectsResponse is one page of list-objects results.
+message ListObjectsResponse {
+  repeated S3ObjectMeta objects = 1;
+  repeated string common_prefixes = 2;
+  string next_continuation_token = 3;
+  bool has_more = 4;
+}
+
+// CopyObjectRequest copies one object to another location.
+message CopyObjectRequest {
+  S3ObjectRef source = 1;
+  S3ObjectRef destination = 2;
+  string if_match = 3;
+  string if_none_match = 4;
+}
+
+// CopyObjectResponse returns metadata for the copied object.
+message CopyObjectResponse {
+  S3ObjectMeta meta = 1;
+}
+
+// PresignMethod identifies the HTTP verb encoded into a presigned URL.
+enum PresignMethod {
+  PRESIGN_METHOD_UNSPECIFIED = 0;
+  PRESIGN_METHOD_GET = 1;
+  PRESIGN_METHOD_PUT = 2;
+  PRESIGN_METHOD_DELETE = 3;
+  PRESIGN_METHOD_HEAD = 4;
+}
+
+// PresignObjectRequest asks the provider to mint a presigned URL.
+message PresignObjectRequest {
+  S3ObjectRef ref = 1;
+  PresignMethod method = 2;
+  int64 expires_seconds = 3;
+  string content_type = 4;
+  string content_disposition = 5;
+  map<string, string> headers = 6;
+}
+
+// PresignObjectResponse returns a presigned URL plus any required headers.
+message PresignObjectResponse {
+  string url = 1;
+  PresignMethod method = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  map<string, string> headers = 4;
+}
+
+// CreateObjectAccessURLRequest asks the host to mint an HTTP object-access URL
+// for a plugin-scoped S3 binding. The host authorizes and scopes the URL, then
+// streams object bytes through the backing S3 provider.
+message CreateObjectAccessURLRequest {
+  S3ObjectRef ref = 1;
+  PresignMethod method = 2;
+  int64 expires_seconds = 3;
+  string content_type = 4;
+  string content_disposition = 5;
+  map<string, string> headers = 6;
+}
+
+// CreateObjectAccessURLResponse returns a hosted object-access URL plus any
+// headers the caller must include when using it.
+message CreateObjectAccessURLResponse {
+  string url = 1;
+  PresignMethod method = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  map<string, string> headers = 4;
+}
+
+// S3 models the shared Gestalt S3-provider protocol.
+service S3 {
+  option (host_binding) = "s3";
+
+  rpc HeadObject(HeadObjectRequest) returns (HeadObjectResponse) {
+    option (signature) = "ref";
+  }
+  // The first response frame carries object metadata. All subsequent frames
+  // carry byte chunks. Zero-byte objects therefore emit exactly one frame.
+  rpc ReadObject(ReadObjectRequest) returns (stream ReadObjectChunk) {
+    option (initial) = {
+      header: "meta"
+      chunk: "data"
+    };
+  }
+  // The first request frame must carry WriteObjectOpen metadata. All
+  // subsequent frames carry raw bytes. The response is emitted only after the
+  // object has been durably committed by the provider.
+  rpc WriteObject(stream WriteObjectRequest) returns (WriteObjectResponse) {
+    option (initial) = {
+      header: "open"
+      chunk: "data"
+    };
+  }
+  rpc DeleteObject(DeleteObjectRequest) returns (google.protobuf.Empty) {
+    option (signature) = "ref";
+  }
+  rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse) {
+    option (signature) = "prefix";
+    option (signature) = "delimiter";
+    option (signature) = "continuation_token";
+    option (signature) = "start_after";
+    option (signature) = "max_keys";
+  }
+  rpc CopyObject(CopyObjectRequest) returns (CopyObjectResponse) {
+    option (signature) = "if_match";
+    option (signature) = "if_none_match";
+    option (signature) = "source";
+    option (signature) = "destination";
+  }
+  rpc PresignObject(PresignObjectRequest) returns (PresignObjectResponse) {
+    option (signature) = "method";
+    option (signature) = "expires_seconds";
+    option (signature) = "ref";
+    option (optional_signature) = "content_type";
+    option (optional_signature) = "content_disposition";
+  }
+}
+
+// S3ObjectAccess models host-mediated object access for plugin-scoped S3
+// bindings. It is registered by gestaltd for apps and is not implemented by
+// S3 providers.
+service S3ObjectAccess {
+  rpc CreateObjectAccessURL(CreateObjectAccessURLRequest) returns (CreateObjectAccessURLResponse) {
+    option (signature) = "method";
+    option (signature) = "expires_seconds";
+    option (signature) = "ref";
+    option (optional_signature) = "content_type";
+    option (optional_signature) = "content_disposition";
+  }
+}

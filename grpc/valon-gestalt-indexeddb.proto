@@ -1,0 +1,506 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/api/visibility.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+import "v1/annotations.proto";
+
+// TypedValue stores one scalar or structured value in an IndexedDB record.
+message TypedValue {
+  oneof kind {
+    google.protobuf.NullValue null_value = 1;
+    string string_value = 2;
+    int64 int_value = 3;
+    double float_value = 4;
+    bool bool_value = 5;
+    google.protobuf.Timestamp time_value = 6;
+    bytes bytes_value = 7;
+    google.protobuf.Value json_value = 8;
+  }
+}
+
+// Record is one JSON-like row in an object store.
+message Record {
+  map<string, TypedValue> fields = 1;
+}
+
+// ObjectStoreSchema describes the indexes and columns attached to an object
+// store.
+message ObjectStoreSchema {
+  repeated IndexSchema indexes = 1;
+  repeated ColumnDef columns = 2;
+}
+
+// IndexSchema describes one secondary index on an object store.
+message IndexSchema {
+  string name = 1;
+  repeated string key_path = 2;
+  bool unique = 3;
+}
+
+// ColumnDef is reserved for providers that preserve SQL-style column metadata.
+message ColumnDef {
+  string name = 1;
+  int32 type = 2;
+  bool primary_key = 3;
+  bool not_null = 4;
+  bool unique = 5;
+}
+
+// KeyValue represents one IndexedDB key: a scalar (string, number, date,
+// binary) or a nested array of keys, per the W3C spec.
+// https://www.w3.org/TR/IndexedDB/#key-construct
+message KeyValue {
+  oneof kind {
+    TypedValue scalar = 1;
+    KeyValueArray array = 2;
+  }
+}
+
+message KeyValueArray {
+  repeated KeyValue elements = 1;
+}
+
+// KeyRange constrains a query or cursor by lower and upper bounds. Bounds are
+// full IndexedDB keys (scalar or array), matching W3C IDBKeyRange. An absent
+// lower/upper means unbounded on that side.
+// https://www.w3.org/TR/IndexedDB/#keyrange
+message KeyRange {
+  KeyValue lower = 1;
+  KeyValue upper = 2;
+  bool lower_open = 3;
+  bool upper_open = 4;
+}
+
+// IndexedDBQuery is a single IndexedDB query argument: an exact key or a key
+// range. An absent IndexedDBQuery (or an unset oneof) means "all records",
+// matching a W3C query argument of undefined/null.
+message IndexedDBQuery {
+  oneof query {
+    KeyValue key = 1;
+    KeyRange range = 2;
+  }
+}
+
+// RecordRequest addresses one object store and carries one row payload.
+message RecordRequest {
+  string store = 1;
+  Record record = 2;
+}
+
+// RecordResponse wraps one row payload.
+message RecordResponse {
+  Record record = 1;
+}
+
+// RecordsResponse wraps repeated row payloads.
+message RecordsResponse {
+  repeated Record records = 1;
+}
+
+// KeysResponse wraps repeated primary keys.
+message KeysResponse {
+  repeated string keys = 1;
+}
+
+// ObjectStoreRequest addresses one object store row by primary key.
+message ObjectStoreRequest {
+  string store = 1;
+  string id = 2;
+}
+
+// ObjectStoreNameRequest addresses an object store without a specific row key.
+message ObjectStoreNameRequest {
+  string store = 1;
+}
+
+// ObjectStoreRangeRequest addresses an object store plus an optional query.
+message ObjectStoreRangeRequest {
+  string store = 1;
+  IndexedDBQuery query = 2;
+  optional uint32 count = 3;
+}
+
+// CreateObjectStoreRequest creates a new object store.
+message CreateObjectStoreRequest {
+  string name = 1;
+  ObjectStoreSchema schema = 2;
+}
+
+// DeleteObjectStoreRequest removes an object store.
+message DeleteObjectStoreRequest {
+  string name = 1;
+}
+
+// CreateIndexRequest adds a secondary index to an existing object store.
+message CreateIndexRequest {
+  string store = 1;
+  string name = 2;
+  repeated string key_path = 3;
+  bool unique = 4;
+}
+
+// DeleteIndexRequest removes a secondary index from an existing object store.
+message DeleteIndexRequest {
+  string store = 1;
+  string name = 2;
+}
+
+// IndexQueryRequest addresses a secondary index plus an optional query.
+message IndexQueryRequest {
+  string store = 1;
+  string index = 2;
+  IndexedDBQuery query = 3;
+  optional uint32 count = 4;
+}
+
+// CountResponse reports how many rows matched a query.
+message CountResponse {
+  option (unwrap) = "count";
+  int64 count = 1;
+}
+
+// CursorDirection controls IndexedDB cursor traversal order.
+enum CursorDirection {
+  CURSOR_NEXT = 0;
+  CURSOR_NEXT_UNIQUE = 1;
+  CURSOR_PREV = 2;
+  CURSOR_PREV_UNIQUE = 3;
+}
+
+// OpenCursorRequest starts a streaming cursor over an object store or index.
+message OpenCursorRequest {
+  string store = 1;
+  string index = 2;
+  IndexedDBQuery query = 3;
+  CursorDirection direction = 4;
+  // keys_only suppresses row payloads and returns only keys.
+  bool keys_only = 5;
+}
+
+// CursorKeyTarget addresses a specific cursor position.
+message CursorKeyTarget {
+  KeyValue key = 1;
+}
+
+// CursorCommand advances, mutates, or closes an open cursor.
+message CursorCommand {
+  oneof command {
+    bool next = 1;
+    CursorKeyTarget continue_to_key = 2;
+    int32 advance = 3;
+    Record update = 4;
+    bool delete = 5;
+    bool close = 6;
+  }
+}
+
+// CursorClientMessage is one frame in the bidirectional cursor stream.
+message CursorClientMessage {
+  oneof msg {
+    OpenCursorRequest open = 1;
+    CursorCommand command = 2;
+  }
+}
+
+// CursorEntry is one streamed cursor row.
+message CursorEntry {
+  // One full IndexedDB key (scalar or array).
+  // https://www.w3.org/TR/IndexedDB/#dom-idbcursor-key
+  KeyValue key = 1;
+  string primary_key = 2;
+  Record record = 3;
+}
+
+// CursorResponse is one streamed cursor frame.
+message CursorResponse {
+  oneof result {
+    CursorEntry entry = 1;
+    bool done = 2;
+  }
+}
+
+// DeleteResponse reports how many rows were deleted.
+message DeleteResponse {
+  int64 deleted = 1;
+}
+
+// KeyResponse wraps one primary key.
+message KeyResponse {
+  string key = 1;
+}
+
+// TransactionMode controls whether a transaction may mutate scoped stores.
+enum TransactionMode {
+  TRANSACTION_READONLY = 0;
+  TRANSACTION_READWRITE = 1;
+}
+
+// TransactionDurabilityHint mirrors the W3C IndexedDB durability option as a
+// provider hint. It is not a portable durability guarantee.
+enum TransactionDurabilityHint {
+  TRANSACTION_DURABILITY_DEFAULT = 0;
+  TRANSACTION_DURABILITY_STRICT = 1;
+  TRANSACTION_DURABILITY_RELAXED = 2;
+}
+
+// BeginTransactionRequest starts an IndexedDB transaction stream.
+message BeginTransactionRequest {
+  repeated string stores = 1;
+  TransactionMode mode = 2;
+  TransactionDurabilityHint durability_hint = 3;
+}
+
+message TransactionBeginResponse {}
+
+message TransactionCommitRequest {}
+
+// TransactionCommitResponse carries a non-OK status when commit failed after
+// the provider accepted the commit frame and rolled the transaction back.
+message TransactionCommitResponse {
+  google.rpc.Status error = 1;
+}
+
+message TransactionAbortRequest {
+  string reason = 1;
+}
+
+// TransactionAbortResponse acknowledges abort or reports an abort failure.
+message TransactionAbortResponse {
+  google.rpc.Status error = 1;
+}
+
+// TransactionOperation is one ordered transaction-scoped object store or index
+// operation. Cursor operations are intentionally excluded from the initial
+// transaction contract.
+message TransactionOperation {
+  uint64 request_id = 1;
+  oneof operation {
+    ObjectStoreRequest get = 10;
+    ObjectStoreRequest get_key = 11;
+    RecordRequest add = 12;
+    RecordRequest put = 13;
+    ObjectStoreRequest delete = 14;
+    ObjectStoreNameRequest clear = 15;
+    ObjectStoreRangeRequest get_all = 16;
+    ObjectStoreRangeRequest get_all_keys = 17;
+    ObjectStoreRangeRequest count = 18;
+    ObjectStoreRangeRequest delete_range = 19;
+    IndexQueryRequest index_get = 20;
+    IndexQueryRequest index_get_key = 21;
+    IndexQueryRequest index_get_all = 22;
+    IndexQueryRequest index_get_all_keys = 23;
+    IndexQueryRequest index_count = 24;
+    IndexQueryRequest index_delete = 25;
+  }
+}
+
+// TransactionOperationResponse is the ordered response to one operation.
+// Non-OK error marks the transaction failed and causes rollback in phase 1.
+message TransactionOperationResponse {
+  uint64 request_id = 1;
+  google.rpc.Status error = 2;
+  oneof result {
+    google.protobuf.Empty empty = 10;
+    RecordResponse record = 11;
+    RecordsResponse records = 12;
+    KeyResponse key = 13;
+    KeysResponse keys = 14;
+    CountResponse count = 15;
+    DeleteResponse delete = 16;
+  }
+}
+
+// TransactionClientMessage is one client frame in the transaction stream. The
+// first frame must be BeginTransactionRequest.
+message TransactionClientMessage {
+  oneof msg {
+    BeginTransactionRequest begin = 1;
+    TransactionOperation operation = 2;
+    TransactionCommitRequest commit = 3;
+    TransactionAbortRequest abort = 4;
+  }
+}
+
+message TransactionServerMessage {
+  oneof msg {
+    TransactionBeginResponse begin = 1;
+    TransactionOperationResponse operation = 2;
+    TransactionCommitResponse commit = 3;
+    TransactionAbortResponse abort = 4;
+  }
+}
+
+// IndexedDB models the shared Gestalt IndexedDB-provider protocol.
+service IndexedDB {
+  option (host_binding) = "indexeddb";
+
+  // Lifecycle
+  rpc CreateObjectStore(CreateObjectStoreRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "name";
+    option (signature) = "schema";
+  }
+  rpc DeleteObjectStore(DeleteObjectStoreRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "name";
+  }
+  rpc CreateIndex(CreateIndexRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "name";
+    option (signature) = "key_path";
+    option (signature) = "unique";
+  }
+  rpc DeleteIndex(DeleteIndexRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "name";
+  }
+
+  // Primary key CRUD
+  rpc Get(ObjectStoreRequest) returns (RecordResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "id";
+  }
+  rpc GetKey(ObjectStoreRequest) returns (KeyResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "id";
+  }
+  rpc Add(RecordRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "record";
+  }
+  rpc Put(RecordRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "record";
+  }
+  rpc Delete(ObjectStoreRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "id";
+  }
+
+  // Bulk operations (with optional query)
+  rpc Clear(ObjectStoreNameRequest) returns (google.protobuf.Empty) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+  }
+  rpc GetAll(ObjectStoreRangeRequest) returns (RecordsResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "query";
+    option (optional_signature) = "count";
+  }
+  rpc GetAllKeys(ObjectStoreRangeRequest) returns (KeysResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "query";
+    option (optional_signature) = "count";
+  }
+  rpc Count(ObjectStoreRangeRequest) returns (CountResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "query";
+  }
+  rpc DeleteRange(ObjectStoreRangeRequest) returns (DeleteResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "query";
+  }
+
+  // Index queries
+  rpc IndexGet(IndexQueryRequest) returns (RecordResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+  }
+  rpc IndexGetKey(IndexQueryRequest) returns (KeyResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+  }
+  rpc IndexGetAll(IndexQueryRequest) returns (RecordsResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+    option (optional_signature) = "count";
+  }
+  rpc IndexGetAllKeys(IndexQueryRequest) returns (KeysResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+    option (optional_signature) = "count";
+  }
+  rpc IndexCount(IndexQueryRequest) returns (CountResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+  }
+  rpc IndexDelete(IndexQueryRequest) returns (DeleteResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (signature) = "store";
+    option (signature) = "index";
+    option (signature) = "query";
+  }
+
+  // Cursor iteration (bidirectional stream)
+  rpc OpenCursor(stream CursorClientMessage) returns (stream CursorResponse);
+
+  // Transaction stream. The first client message must be
+  // BeginTransactionRequest. Stream close before commit aborts the transaction.
+  rpc Transaction(stream TransactionClientMessage) returns (stream TransactionServerMessage);
+}

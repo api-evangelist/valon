@@ -1,0 +1,80 @@
+generated: '2026-07-21'
+method: searched
+source: https://gestaltd.ai/client/cli
+notes: >-
+  First-party CLI: gestalt, a Rust client for the self-hosted Gestalt platform
+  (Valon Technologies). Pre-release/alpha. The companion server daemon is
+  gestaltd. Binary distribution is catalogued in packages/valon-packages.yml.
+cli:
+  name: gestalt
+  language: rust
+  license: Apache-2.0
+  source_code: https://github.com/valon-technologies/gestalt/tree/main/gestalt
+  docs: https://gestaltd.ai/client/cli
+  install:
+    - method: installer
+      command: curl -fsSL https://gestaltd.ai/install-gestalt.sh | sh
+    - method: homebrew
+      command: brew install valon-technologies/gestalt/gestalt
+    - method: binary
+      url: https://github.com/valon-technologies/gestalt/releases
+    - method: source
+      url: https://github.com/valon-technologies/gestalt
+  configuration:
+    resolution_order:
+      - "--url command flag"
+      - GESTALT_URL environment variable
+      - project-local .gestalt/config.json
+      - "~/.config/gestalt/config.json"
+    auth_resolution:
+      - GESTALT_API_KEY environment variable
+      - stored browser login credentials
+    init: gestalt init creates project-specific configuration for consistent server targeting
+  commands:
+    - group: auth
+      commands:
+        - name: gestalt auth login
+          description: Browser-based authentication
+        - name: gestalt auth logout
+          description: Clear stored credentials
+        - name: gestalt auth status
+          description: Check connection and login support
+    - group: app
+      commands:
+        - name: gestalt app list
+          description: Display available apps
+        - name: gestalt app describe
+          description: Show operation parameters
+        - name: gestalt app connect
+          description: Establish OAuth or manual connections to external services
+        - name: gestalt app disconnect
+          description: Remove stored credentials
+        - name: gestalt app invoke
+          description: Execute app operations
+    - group: workflow
+      commands:
+        - name: gestalt workflow events deliver
+          description: Send events to the system
+        - name: gestalt workflow runs
+          description: Inspect and manage workflow execution runs
+    - group: agent
+      commands:
+        - name: gestalt agent
+          description: Launch interactive agent sessions
+        - name: gestalt agent sessions
+          description: Create and manage conversations
+        - name: gestalt agent turns
+          description: Handle individual interactions
+    - group: tokens
+      commands:
+        - name: gestalt tokens create
+          description: Create API tokens
+        - name: gestalt tokens list
+          description: List API tokens
+        - name: gestalt tokens revoke
+          description: Revoke API tokens
+  key_flows:
+    - Connect external services (gestalt app connect) with OAuth or manual credentials
+    - Invoke unified operations across REST/GraphQL/MCP/executable tools (gestalt app invoke)
+    - Manage durable workflow runs and deliver events
+    - Run agent conversations interactively or programmatically

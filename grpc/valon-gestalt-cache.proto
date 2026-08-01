@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "v1/annotations.proto";
+
+// CacheSetEntry is one key/value pair written by SetMany.
+message CacheSetEntry {
+  string key = 1;
+  bytes value = 2;
+}
+
+// CacheResult is one lookup result returned by GetMany.
+message CacheResult {
+  string key = 1;
+  bool found = 2;
+  bytes value = 3;
+}
+
+// CacheGetRequest loads one cache key.
+message CacheGetRequest {
+  string key = 1;
+}
+
+// CacheGetResponse is the result of looking up one cache key.
+message CacheGetResponse {
+  option (optional_result) = {
+    guard: "found"
+    value: "value"
+  };
+
+  bool found = 1;
+  bytes value = 2;
+}
+
+// CacheGetManyRequest loads multiple cache keys in one RPC.
+message CacheGetManyRequest {
+  repeated string keys = 1;
+}
+
+// CacheGetManyResponse returns every lookup result for GetMany.
+message CacheGetManyResponse {
+  option (keyed) = {
+    entries: "entries"
+    key: "key"
+    present: "found"
+    value: "value"
+  };
+
+  repeated CacheResult entries = 1;
+}
+
+// CacheSetRequest writes one cache key.
+message CacheSetRequest {
+  string key = 1;
+  bytes value = 2;
+  // ttl applies an optional expiration to the entry.
+  google.protobuf.Duration ttl = 3;
+}
+
+// CacheSetManyRequest writes multiple cache keys in one RPC.
+message CacheSetManyRequest {
+  repeated CacheSetEntry entries = 1;
+  google.protobuf.Duration ttl = 2;
+}
+
+// CacheDeleteRequest removes one cache key.
+message CacheDeleteRequest {
+  string key = 1;
+}
+
+// CacheDeleteResponse reports whether one key existed and was deleted.
+message CacheDeleteResponse {
+  option (unwrap) = "deleted";
+
+  bool deleted = 1;
+}
+
+// CacheDeleteManyRequest removes multiple cache keys in one RPC.
+message CacheDeleteManyRequest {
+  repeated string keys = 1;
+}
+
+// CacheDeleteManyResponse reports how many keys were deleted.
+message CacheDeleteManyResponse {
+  option (unwrap) = "deleted";
+
+  int64 deleted = 1;
+}
+
+// CacheTouchRequest extends the TTL for one cache key.
+message CacheTouchRequest {
+  string key = 1;
+  google.protobuf.Duration ttl = 2;
+}
+
+// CacheTouchResponse reports whether a key existed and had its TTL updated.
+message CacheTouchResponse {
+  option (unwrap) = "touched";
+
+  bool touched = 1;
+}
+
+// Cache models the shared Gestalt cache-provider protocol.
+service Cache {
+  option (host_binding) = "cache";
+
+  rpc Get(CacheGetRequest) returns (CacheGetResponse) {
+    option (signature) = "key";
+  }
+  rpc GetMany(CacheGetManyRequest) returns (CacheGetManyResponse) {
+    option (signature) = "keys";
+  }
+  rpc Set(CacheSetRequest) returns (google.protobuf.Empty) {
+    option (signature) = "key";
+    option (signature) = "value";
+    option (signature) = "ttl";
+  }
+  rpc SetMany(CacheSetManyRequest) returns (google.protobuf.Empty) {
+    option (signature) = "entries";
+    option (signature) = "ttl";
+  }
+  rpc Delete(CacheDeleteRequest) returns (CacheDeleteResponse) {
+    option (signature) = "key";
+  }
+  rpc DeleteMany(CacheDeleteManyRequest) returns (CacheDeleteManyResponse) {
+    option (signature) = "keys";
+  }
+  rpc Touch(CacheTouchRequest) returns (CacheTouchResponse) {
+    option (signature) = "key";
+    option (signature) = "ttl";
+  }
+}

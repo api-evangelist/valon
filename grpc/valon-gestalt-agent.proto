@@ -1,0 +1,624 @@
+syntax = "proto3";
+
+package gestalt.provider.v1;
+
+import "google/api/annotations.proto";
+import "google/api/visibility.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "v1/annotations.proto";
+import "v1/app.proto";
+
+message AgentMessage {
+  string role = 1;
+  string text = 2;
+  repeated AgentMessagePart parts = 3;
+  google.protobuf.Struct metadata = 4;
+}
+
+enum AgentMessagePartType {
+  AGENT_MESSAGE_PART_TYPE_UNSPECIFIED = 0;
+  AGENT_MESSAGE_PART_TYPE_TEXT = 1;
+  AGENT_MESSAGE_PART_TYPE_JSON = 2;
+  AGENT_MESSAGE_PART_TYPE_TOOL_CALL = 3;
+  AGENT_MESSAGE_PART_TYPE_TOOL_RESULT = 4;
+  AGENT_MESSAGE_PART_TYPE_IMAGE_REF = 5;
+}
+
+message AgentMessagePartToolCall {
+  string id = 1;
+  string tool_id = 2;
+  google.protobuf.Struct arguments = 3;
+}
+
+message AgentMessagePartToolResult {
+  string tool_call_id = 1;
+  int32 status = 2;
+  string content = 3;
+  google.protobuf.Struct output = 4;
+}
+
+message AgentMessagePartImageRef {
+  string uri = 1;
+  string mime_type = 2;
+}
+
+message AgentMessagePart {
+  AgentMessagePartType type = 1;
+  string text = 2;
+  google.protobuf.Struct json = 3;
+  AgentMessagePartToolCall tool_call = 4;
+  AgentMessagePartToolResult tool_result = 5;
+  AgentMessagePartImageRef image_ref = 6;
+}
+
+message AgentWorkspace {
+  repeated AgentWorkspaceGitCheckout checkouts = 1;
+  string cwd = 2;
+}
+
+message AgentWorkspaceGitCheckout {
+  string url = 1;
+  string ref = 2;
+  string path = 3;
+}
+
+message PreparedAgentWorkspace {
+  string root = 1;
+  string cwd = 2;
+}
+
+enum AgentToolSourceMode {
+  reserved 1;
+
+  AGENT_TOOL_SOURCE_MODE_UNSPECIFIED = 0;
+  AGENT_TOOL_SOURCE_MODE_CATALOG = 2;
+  AGENT_TOOL_SOURCE_MODE_NONE = 3;
+}
+
+enum AgentExecutionStatus {
+  AGENT_EXECUTION_STATUS_UNSPECIFIED = 0;
+  AGENT_EXECUTION_STATUS_PENDING = 1;
+  AGENT_EXECUTION_STATUS_RUNNING = 2;
+  AGENT_EXECUTION_STATUS_SUCCEEDED = 3;
+  AGENT_EXECUTION_STATUS_FAILED = 4;
+  AGENT_EXECUTION_STATUS_CANCELED = 5;
+  AGENT_EXECUTION_STATUS_WAITING_FOR_INPUT = 6;
+}
+
+enum AgentSessionState {
+  AGENT_SESSION_STATE_UNSPECIFIED = 0;
+  AGENT_SESSION_STATE_ACTIVE = 1;
+  AGENT_SESSION_STATE_ARCHIVED = 2;
+}
+
+enum AgentInteractionType {
+  AGENT_INTERACTION_TYPE_UNSPECIFIED = 0;
+  AGENT_INTERACTION_TYPE_APPROVAL = 1;
+  AGENT_INTERACTION_TYPE_CLARIFICATION = 2;
+  AGENT_INTERACTION_TYPE_INPUT = 3;
+}
+
+enum AgentInteractionState {
+  AGENT_INTERACTION_STATE_UNSPECIFIED = 0;
+  AGENT_INTERACTION_STATE_PENDING = 1;
+  AGENT_INTERACTION_STATE_RESOLVED = 2;
+  AGENT_INTERACTION_STATE_CANCELED = 3;
+}
+
+message AgentProviderCapabilities {
+  reserved 8;
+
+  bool streaming_text = 1;
+  bool tool_calls = 2;
+  bool parallel_tool_calls = 3;
+  bool interactions = 5;
+  bool resumable_turns = 6;
+  bool reasoning_summaries = 7;
+  // Provider list APIs can apply non-zero limits and summary projections without
+  // hydrating every source record. Providers that set this must order sessions
+  // and turns by the relevant newest-first recency fields before applying limit.
+  bool bounded_list_hydration = 9;
+  repeated AgentToolSourceMode supported_tool_sources = 10;
+  bool supports_session_start = 11;
+  bool supports_prepared_workspace = 12;
+}
+
+message GetAgentProviderCapabilitiesRequest {}
+
+message AgentInteraction {
+  string id = 1;
+  AgentInteractionType type = 2;
+  AgentInteractionState state = 3;
+  string title = 4;
+  string prompt = 5;
+  google.protobuf.Struct request = 6;
+  google.protobuf.Struct resolution = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp resolved_at = 9;
+  string turn_id = 10;
+  string session_id = 11;
+}
+
+message AgentSession {
+  string id = 1;
+  string provider_name = 2;
+  string model = 3;
+  string client_ref = 4;
+  AgentSessionState state = 5;
+  google.protobuf.Struct metadata = 6;
+  string created_by_subject_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  google.protobuf.Timestamp last_turn_at = 10;
+}
+
+message CreateAgentProviderSessionRequest {
+  reserved 1, 6, 7, 8, 12, 14;
+  reserved "session_id", "provider_options", "workflow", "created_by_subject_id", "subject";
+
+  // The provider mints the session id returned on AgentSession. Creation is
+  // idempotent on idempotency_key scoped per caller (context.subject.id):
+  // a replayed key returns the existing session, an empty key always creates.
+  // Idempotency is scoped to the provider's session store.
+  string idempotency_key = 2;
+  string model = 3;
+  string client_ref = 4;
+  google.protobuf.Struct metadata = 5;
+  AgentSessionStartConfig session_start = 9;
+  PreparedAgentWorkspace prepared_workspace = 10;
+  string provider_name = 11;
+  AgentWorkspace workspace = 13;
+  RequestContext context = 15;
+  AgentToolConfig tools = 16;
+}
+
+message AgentToolConfig {
+  oneof source {
+    AgentNoTools none = 1;
+    AgentCatalogToolConfig catalog = 2;
+  }
+}
+
+message AgentNoTools {}
+
+message AgentCatalogToolConfig {
+  repeated AgentToolRef refs = 1;
+  repeated ListedAgentTool tools = 2;
+}
+
+message AgentSessionStartConfig {
+  repeated AgentSessionStartHook hooks = 1;
+}
+
+message AgentSessionStartHook {
+  string id = 1;
+  string type = 2;
+  repeated string command = 3;
+  string cwd = 4;
+  string timeout = 5;
+  map<string, string> env = 6;
+  AgentSessionStartHookOutput output = 7;
+}
+
+message AgentSessionStartHookOutput {
+  bool additional_context = 1;
+  bool metadata = 2;
+}
+
+message GetAgentProviderSessionRequest {
+  reserved 2, 3, 4;
+  reserved "workflow", "subject";
+
+  string session_id = 1;
+  RequestContext context = 5;
+  string provider_name = 6;
+}
+
+message ListAgentProviderSessionsRequest {
+  reserved 1, 7, 8;
+  reserved "workflow", "subject";
+
+  repeated string session_ids = 2;
+  AgentSessionState state = 3;
+  // When non-zero and bounded_list_hydration is supported, cap results after
+  // ordering sessions newest-first by last_turn_at, updated_at, then created_at.
+  int32 limit = 4;
+  // When true and bounded_list_hydration is supported, omit heavy fields such as
+  // metadata unless exact session_ids require direct lookup.
+  bool summary_only = 5;
+  string provider_name = 6;
+  RequestContext context = 9;
+}
+
+message ListAgentProviderSessionsResponse {
+  option (unwrap) = "sessions";
+
+  repeated AgentSession sessions = 1;
+}
+
+message UpdateAgentProviderSessionRequest {
+  reserved 5, 6, 7;
+  reserved "workflow", "subject";
+
+  string session_id = 1;
+  string client_ref = 2;
+  AgentSessionState state = 3;
+  google.protobuf.Struct metadata = 4;
+  RequestContext context = 8;
+  string provider_name = 9;
+}
+
+message AgentTurn {
+  string id = 1;
+  string session_id = 2;
+  string provider_name = 3;
+  string model = 4;
+  AgentExecutionStatus status = 5;
+  repeated AgentMessage messages = 6;
+  string status_message = 9;
+  string created_by_subject_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  string execution_ref = 14;
+  oneof output {
+    AgentTurnTextOutput text = 20;
+    AgentTurnStructuredOutput structured = 21;
+  }
+}
+
+message AgentTurnTextOutput {
+  string text = 1;
+}
+
+message AgentTurnStructuredOutput {
+  string text = 1;
+  google.protobuf.Struct value = 2;
+}
+
+message AgentTurnDisplay {
+  string kind = 1;
+  string phase = 2;
+  string text = 3;
+  string label = 4;
+  string ref = 5;
+  string parent_ref = 6;
+  google.protobuf.Value input = 7;
+  google.protobuf.Value output = 8;
+  google.protobuf.Value error = 9;
+  string action = 10;
+  string format = 11;
+  string language = 12;
+}
+
+message CreateAgentProviderTurnRequest {
+  reserved 6, 9, 10, 12, 13, 14, 15, 17, 19, 20, 22;
+  reserved "tools", "provider_options", "tool_refs", "tool_source", "tool_grant", "run_grant", "tool_refs_set", "workflow", "created_by_subject_id", "subject";
+
+  string turn_id = 1;
+  string session_id = 2;
+  string idempotency_key = 3;
+  string model = 4;
+  repeated AgentMessage messages = 5;
+  google.protobuf.Struct metadata = 8;
+  string execution_ref = 11;
+  google.protobuf.Struct model_options = 16;
+  // Optional provider-owned turn execution budget, in seconds.
+  // If unset or zero, the provider chooses its own execution timeout. This does
+  // not control the CreateTurn RPC deadline.
+  int32 timeout_seconds = 18;
+  AgentOutput output = 21;
+  RequestContext context = 23;
+  string provider_name = 24;
+}
+
+message AgentTextOutput {}
+
+message AgentStructuredOutput {
+  google.protobuf.Struct schema = 1;
+}
+
+message AgentOutput {
+  oneof kind {
+    AgentTextOutput text = 1;
+    AgentStructuredOutput structured = 2;
+  }
+}
+
+message GetAgentProviderTurnRequest {
+  reserved 2, 3, 4;
+  reserved "workflow", "subject";
+
+  string turn_id = 1;
+  RequestContext context = 5;
+  string provider_name = 6;
+  string session_id = 7;
+}
+
+message ListAgentProviderTurnsRequest {
+  reserved 2, 7, 8;
+  reserved "workflow", "subject";
+
+  string session_id = 1;
+  repeated string turn_ids = 3;
+  AgentExecutionStatus status = 4;
+  // When non-zero and bounded_list_hydration is supported, cap results after
+  // ordering turns newest-first by created_at.
+  int32 limit = 5;
+  // When true and bounded_list_hydration is supported, omit heavy fields such as
+  // messages, output text, and structured output unless exact turn_ids require
+  // direct lookup.
+  bool summary_only = 6;
+  RequestContext context = 9;
+  string provider_name = 10;
+}
+
+message ListAgentProviderTurnsResponse {
+  option (unwrap) = "turns";
+
+  repeated AgentTurn turns = 1;
+}
+
+message CancelAgentProviderTurnRequest {
+  reserved 3, 4, 5;
+  reserved "workflow", "subject";
+
+  string turn_id = 1;
+  string reason = 2;
+  RequestContext context = 6;
+  string provider_name = 7;
+  string session_id = 8;
+}
+
+message AgentTurnEvent {
+  string id = 1;
+  string turn_id = 2;
+  int64 seq = 3;
+  string type = 4;
+  string source = 5;
+  string visibility = 6;
+  google.protobuf.Struct data = 7;
+  google.protobuf.Timestamp created_at = 8;
+  AgentTurnDisplay display = 9;
+}
+
+message ListAgentProviderTurnEventsRequest {
+  reserved 4, 5, 6;
+  reserved "workflow", "subject";
+
+  string turn_id = 1;
+  int64 after_seq = 2;
+  int32 limit = 3;
+  RequestContext context = 7;
+  string provider_name = 8;
+  string session_id = 9;
+}
+
+message ListAgentProviderTurnEventsResponse {
+  option (unwrap) = "events";
+
+  repeated AgentTurnEvent events = 1;
+}
+
+message GetAgentProviderInteractionRequest {
+  reserved 2, 3;
+  reserved "subject";
+
+  string interaction_id = 1;
+  RequestContext context = 4;
+}
+
+message ListAgentProviderInteractionsRequest {
+  reserved 2, 3, 4;
+  reserved "workflow", "subject";
+
+  string turn_id = 1;
+  RequestContext context = 5;
+  string provider_name = 6;
+}
+
+message ListAgentProviderInteractionsResponse {
+  option (unwrap) = "interactions";
+
+  repeated AgentInteraction interactions = 1;
+}
+
+message ResolveAgentProviderInteractionRequest {
+  reserved 3, 4, 6;
+  reserved "workflow", "subject";
+
+  string interaction_id = 1;
+  google.protobuf.Struct resolution = 2;
+  string turn_id = 5;
+  RequestContext context = 7;
+  string provider_name = 8;
+}
+
+message ListedAgentTool {
+  string id = 1;
+  string mcp_name = 2;
+  string title = 3;
+  string description = 4;
+  string input_schema = 5;
+  string output_schema = 6;
+  OperationAnnotations annotations = 7;
+  AgentToolRef ref = 8;
+  repeated string tags = 9;
+  string search_text = 10;
+}
+
+// Agent is the authoritative agent data boundary. Read RPCs for
+// sessions, turns, turn events, and interactions should use provider-owned
+// control-plane state and should not require a live execution sandbox,
+// pod-level transport, or cached tunnel.
+service Agent {
+  option (host_binding) = "agent";
+
+  rpc CreateSession(CreateAgentProviderSessionRequest) returns (AgentSession) {
+    option (google.api.http) = {
+      post: "/api/v2/agent/sessions"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "idempotency_key";
+    option (signature) = "model";
+    option (optional_signature) = "provider_name";
+    option (optional_signature) = "client_ref";
+    option (optional_signature) = "metadata";
+    option (optional_signature) = "workspace";
+    option (optional_signature) = "tools";
+  }
+  rpc GetSession(GetAgentProviderSessionRequest) returns (AgentSession) {
+    option (google.api.http) = {get: "/api/v2/agent/sessions/{session_id}"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "session_id";
+    option (optional_signature) = "provider_name";
+  }
+  rpc ListSessions(ListAgentProviderSessionsRequest) returns (ListAgentProviderSessionsResponse) {
+    option (google.api.http) = {get: "/api/v2/agent/sessions"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (optional_signature) = "session_ids";
+    option (optional_signature) = "state";
+    option (optional_signature) = "limit";
+    option (optional_signature) = "summary_only";
+    option (optional_signature) = "provider_name";
+  }
+  rpc UpdateSession(UpdateAgentProviderSessionRequest) returns (AgentSession) {
+    option (google.api.http) = {
+      patch: "/api/v2/agent/sessions/{session_id}"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "session_id";
+    option (optional_signature) = "client_ref";
+    option (optional_signature) = "state";
+    option (optional_signature) = "provider_name";
+    option (optional_signature) = "metadata";
+  }
+
+  rpc CreateTurn(CreateAgentProviderTurnRequest) returns (AgentTurn) {
+    option (google.api.http) = {
+      post: "/api/v2/agent/sessions/{session_id}/turns"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "session_id";
+    option (signature) = "idempotency_key";
+    option (signature) = "model";
+    option (signature) = "messages";
+    option (optional_signature) = "execution_ref";
+    option (optional_signature) = "timeout_seconds";
+    option (optional_signature) = "provider_name";
+    option (optional_signature) = "metadata";
+    option (optional_signature) = "model_options";
+    option (optional_signature) = "output";
+  }
+  rpc GetTurn(GetAgentProviderTurnRequest) returns (AgentTurn) {
+    option (google.api.http) = {get: "/api/v2/agent/sessions/{session_id}/turns/{turn_id}"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "turn_id";
+    option (optional_signature) = "provider_name";
+  }
+  rpc ListTurns(ListAgentProviderTurnsRequest) returns (ListAgentProviderTurnsResponse) {
+    option (google.api.http) = {get: "/api/v2/agent/sessions/{session_id}/turns"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "session_id";
+    option (optional_signature) = "turn_ids";
+    option (optional_signature) = "status";
+    option (optional_signature) = "limit";
+    option (optional_signature) = "summary_only";
+    option (optional_signature) = "provider_name";
+  }
+  rpc CancelTurn(CancelAgentProviderTurnRequest) returns (AgentTurn) {
+    option (google.api.http) = {
+      post: "/api/v2/agent/sessions/{session_id}/turns/{turn_id}:cancel"
+      body: "*"
+    };
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "turn_id";
+    option (optional_signature) = "reason";
+    option (optional_signature) = "provider_name";
+  }
+
+  rpc ListTurnEvents(ListAgentProviderTurnEventsRequest) returns (ListAgentProviderTurnEventsResponse) {
+    option (google.api.http) = {get: "/api/v2/agent/sessions/{session_id}/turns/{turn_id}/events"};
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "turn_id";
+    option (optional_signature) = "after_seq";
+    option (optional_signature) = "limit";
+    option (optional_signature) = "provider_name";
+  }
+
+  rpc GetInteraction(GetAgentProviderInteractionRequest) returns (AgentInteraction) {
+    option (signature) = "interaction_id";
+  }
+  rpc ListInteractions(ListAgentProviderInteractionsRequest) returns (ListAgentProviderInteractionsResponse) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "turn_id";
+    option (optional_signature) = "provider_name";
+  }
+  rpc ResolveInteraction(ResolveAgentProviderInteractionRequest) returns (AgentInteraction) {
+    option (google.api.method_visibility) = {
+      restriction: "PUBLIC"
+    };
+    option (public) = {
+      fill: "context"
+    };
+    option (signature) = "interaction_id";
+    option (signature) = "turn_id";
+    option (signature) = "resolution";
+    option (optional_signature) = "provider_name";
+  }
+  rpc GetCapabilities(GetAgentProviderCapabilitiesRequest) returns (AgentProviderCapabilities);
+}

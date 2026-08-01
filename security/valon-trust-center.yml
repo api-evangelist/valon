@@ -1,0 +1,12 @@
+generated: '2026-07-21'
+method: searched
+probe: true
+source: https://valon.com/security/
+url: https://valon.com/security/
+certifications:
+- SOC 2
+evidence:
+- source: https://valon.com/security/
+  keywords:
+  - soc 2
+  - soc2

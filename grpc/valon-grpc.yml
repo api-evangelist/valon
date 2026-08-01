@@ -1,0 +1,24 @@
+generated: '2026-07-21'
+method: searched
+source: https://github.com/valon-technologies/gestalt/tree/main/sdk/proto/v1
+notes: >-
+  First-party protobuf protocol definitions for Gestalt (Valon Technologies),
+  saved verbatim from sdk/proto/v1 in the gestalt monorepo (Apache-2.0). These
+  are the shared protocol bindings the Go/Python/Rust/TypeScript SDKs are
+  generated from, and the source of the gRPC annotations that generate the
+  /api/v2 HTTP surface.
+files:
+  - valon-gestalt-agent.proto
+  - valon-gestalt-annotations.proto
+  - valon-gestalt-app.proto
+  - valon-gestalt-authorization.proto
+  - valon-gestalt-cache.proto
+  - valon-gestalt-external_credential.proto
+  - valon-gestalt-identity.proto
+  - valon-gestalt-indexeddb.proto
+  - valon-gestalt-runtime.proto
+  - valon-gestalt-runtime_provider.proto
+  - valon-gestalt-s3.proto
+  - valon-gestalt-secrets.proto
+  - valon-gestalt-test.proto
+  - valon-gestalt-workflow.proto

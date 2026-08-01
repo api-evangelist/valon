@@ -1,0 +1,26 @@
+generated: '2026-07-21'
+method: searched
+source: https://github.com/valon-technologies/gestalt + https://gestaltd.ai/reference/http-api
+notes: >-
+  Standards posture of Valon's public developer surface (the open source
+  Gestalt platform). Valon's regulated mortgage-servicing business publishes
+  no public API, so API-level conformance is asserted against Gestalt only.
+standards:
+  - id: mcp
+    conforms: true
+    evidence: gestaltd exposes a Model Context Protocol endpoint at /mcp; MCP servers are also consumable as tools (README + HTTP API reference)
+  - id: openapi
+    conforms: false
+    evidence: no OpenAPI document is published for the Gestalt HTTP API; external REST/OpenAPI services are consumed as tools but the platform API itself ships no spec
+  - id: grpc
+    conforms: true
+    evidence: /api/v2 is generated from gRPC annotations; first-party protobuf protocol definitions published at sdk/proto/v1 (see grpc/)
+  - id: opentelemetry
+    conforms: true
+    evidence: OpenTelemetry-compatible observability and audit logging documented (https://gestaltd.ai/observability)
+  - id: oauth2
+    conforms: false
+    evidence: authentication is bearer-token and session-cookie based; identity endpoints (/api/v2/identity/authorize, /api/v2/identity/token) exist but no OAuth 2.0/RFC 6749 conformance is claimed
+  - id: rfc9457-problem-details
+    conforms: false
+    evidence: errors use gRPC-canonical error model and a protobuf-JSON OperationResult envelope, not application/problem+json
