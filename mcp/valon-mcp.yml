@@ -1,6 +1,7 @@
 generated: '2026-07-21'
 method: searched
-status: self-hosted-product
+status: published
+status_raw: self-hosted-product
 source: https://gestaltd.ai/reference/http-api
 notes: >-
   Valon does not host a public remote MCP server, but its open source Gestalt
