@@ -3,16 +3,12 @@ method: searched
 status: published
 status_raw: self-hosted-product
 source: https://gestaltd.ai/reference/http-api
-notes: >-
-  Valon does not host a public remote MCP server, but its open source Gestalt
-  platform (github.com/valon-technologies/gestalt, Apache 2.0) ships a
-  first-party MCP surface: the gestaltd server daemon exposes an MCP endpoint
-  at /mcp when configured, presenting the same unified operation model it
-  offers over HTTP and CLI. Gestalt aggregates external REST/OpenAPI, GraphQL,
-  MCP, and executable custom code as tools for cloud agents, local coding
-  assistants (Claude Code, Codex, Cursor are first-class), and human operators.
-  Tool inventory is deployment-specific (declarative configuration + provider
-  ecosystem), so no fixed tool list is published.
+notes: 'Valon does not host a public remote MCP server, but its open source Gestalt platform (github.com/valon-technologies/gestalt,
+  Apache 2.0) ships a first-party MCP surface: the gestaltd server daemon exposes an MCP endpoint at /mcp
+  when configured, presenting the same unified operation model it offers over HTTP and CLI. Gestalt aggregates
+  external REST/OpenAPI, GraphQL, MCP, and executable custom code as tools for cloud agents, local coding
+  assistants (Claude Code, Codex, Cursor are first-class), and human operators. Tool inventory is deployment-specific
+  (declarative configuration + provider ecosystem), so no fixed tool list is published.'
 server:
   name: gestalt
   vendor: Valon Technologies
@@ -24,7 +20,15 @@ server:
   docs: https://gestaltd.ai/
   license: Apache-2.0
   install:
-    - curl -fsSL https://gestaltd.ai/install-gestaltd.sh | sh
-    - brew install valon-technologies/gestalt/gestaltd
+  - curl -fsSL https://gestaltd.ai/install-gestaltd.sh | sh
+  - brew install valon-technologies/gestalt/gestaltd
 tools: []
-tools_note: Tools are configured per deployment via Gestalt providers (registry at https://gestaltd.ai/registry); no fixed public tool list.
+tools_note: Tools are configured per deployment via Gestalt providers (registry at https://gestaltd.ai/registry);
+  no fixed public tool list.
+deployment:
+  mode: remote
+  endpoint: https://gestaltd.ai/
+  verified: probed
+  probe: not-mcp
+  checked: '2026-08-12'
+  source: catalog MCP census
