@@ -53,11 +53,11 @@ tags:
 - Loan Servicing
 - Lending
 - Fintech
-- Real-Estate
+- Real Estate
 - Insurance
 - Agentic Tools
 - MCP
-- Open-Source
+- Open Source
 tags_raw:
 - Company
 - Mortgages
@@ -69,6 +69,8 @@ tags_raw:
 - Agentic Tools
 - MCP
 - Open Source
+- Real-Estate
+- Open-Source
 apis: []
 common:
 - type: TrustCenter

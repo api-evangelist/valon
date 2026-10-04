@@ -1,21 +1,19 @@
-# Kin Score artifact — valon — 2026-08-25T154045
+# Kin Score artifact — valon — 2026-10-03T024842
 # The API Evangelist rating (https://github.com/api-evangelist/kin-score). Generated; do not edit.
 ---
 kin_score:
   slug: valon
-  schema_version: 0.14.0
-  scored_at: '2026-08-25'
-  run_ts: 2026-08-25T154045
-  composite: 41.0
+  schema_version: 0.23.0
+  scored_at: '2026-10-03'
+  run_ts: 2026-10-03T024842
+  composite: 39.8
   band: developing
   facets:
-    discoverability: 50.0
-    contract_quality: 26.7
-    governance: 18.2
+    discoverability: 58.3
+    contract_quality: 24.0
+    contract_governance: 18.2
     operational_transparency: 21.1
     developer_ergonomics: 71.4
-    commercial_clarity: 36.8
-    contract_governance: 18.2
     access_clarity: 36.8
   agent_readiness:
     score: 18.9
@@ -44,16 +42,8 @@ kin_score:
     applies: true
     regime: Insurance
     regime_id: insurance
-    score: 45.5
+    score: 26.3
     matched_via: tags
-  needs_work:
-    owner: catalog
-    reasons:
-    - owner: catalog
-      reason: no_resolvable_host
-    detected: '2026-08-18'
-    note: Recorded so this provider's gaps can be attributed. Does not affect the
-      composite.
   provenance:
     mcp: first-party
     conformance: first-party
